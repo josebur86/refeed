@@ -1,5 +1,13 @@
 package main
 
+/*
+    TEST JSON
+    {
+	    "title": "Polygon",
+	    "url": "https://www.polygon.com/rss/index.xml"
+    }
+*/
+
 import (
     "encoding/json"
     "fmt"
@@ -24,8 +32,13 @@ func main() {
     GlobalFeeds = append(GlobalFeeds, Feed{3, "Charlie.com", "http://www.Charlie.com/rss"})
 
     router := mux.NewRouter() // TODO(joe): StrictSlash(true)??
-    router.HandleFunc("/feeds", AllFeedsHandler)
-    router.HandleFunc("/feeds/{id}", SingleFeedHandler)
+
+    // GET
+    router.HandleFunc("/feeds", AllFeedsHandler).Methods("GET");
+    router.HandleFunc("/feeds/{id}", SingleFeedHandler).Methods("GET");
+
+    // PUT
+    router.HandleFunc("/feeds", AddFeedHandler).Methods("PUT");
 
     http.ListenAndServe(":8080", router)
 }
@@ -58,4 +71,27 @@ func SingleFeedHandler(w http.ResponseWriter, r *http.Request) {
     }
 
     fmt.Fprintf(w, "{}"); // TODO(joe): What's the more RESTy response to a request to a feed that doesn't exist.
+}
+
+func AddFeedHandler(w http.ResponseWriter, r *http.Request) {
+    // Here's what I think I have to do:
+    //  1. Get the data if there is any
+    //  2. Assume the data is json and parse it.
+    //  3. Add the feed to the GlobalFeeds list.
+    //  4. Return the correct response.
+    var feed Feed
+    var err = json.NewDecoder(r.Body).Decode(&feed)
+    if err != nil {
+        fmt.Println("Error parsing request body: ", err)
+        return
+    }
+
+    var id = len(GlobalFeeds)+1
+    feed.ID = id;
+    
+    GlobalFeeds = append(GlobalFeeds, feed)
+
+    w.Header().Set("Content-Type", "text/json; charset=utf-8")
+    w.WriteHeader(http.StatusCreated)
+    json.NewEncoder(w).Encode(feed)
 }
