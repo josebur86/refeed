@@ -9,13 +9,17 @@ package main
 */
 
 import (
+	"database/sql"
     "encoding/json"
     "fmt"
+    "log"
     "net/http"
     "strconv"
 
     "github.com/gorilla/mux"
+	_ "github.com/lib/pq"
 )
+
 
 type Feed struct {
     ID int `json:"id"`
@@ -25,7 +29,24 @@ type Feed struct {
 
 var GlobalFeeds []Feed
 
+func ConnectToDB() {
+    connectionParams := "user=refeeder dbname=refeed"
+    db, err := sql.Open("postgres", connectionParams)
+    if err != nil {
+        log.Fatal(err)
+        return
+    }
+
+    log.Print("Connected!")
+    _, err = db.Query("SELECT version();")
+    if err != nil {
+        log.Fatal(err)
+        return
+    }
+}
+
 func main() {
+    ConnectToDB()
 
     GlobalFeeds = append(GlobalFeeds, Feed{1, "Example", "http://www.Example.com/rss"})
     GlobalFeeds = append(GlobalFeeds, Feed{2, "WhoCares", "http://www.WhoCares.com/rss"})
@@ -80,15 +101,15 @@ func AddFeedHandler(w http.ResponseWriter, r *http.Request) {
     //  3. Add the feed to the GlobalFeeds list.
     //  4. Return the correct response.
     var feed Feed
-    var err = json.NewDecoder(r.Body).Decode(&feed)
+    err := json.NewDecoder(r.Body).Decode(&feed)
     if err != nil {
         fmt.Println("Error parsing request body: ", err)
         return
     }
 
-    var id = len(GlobalFeeds)+1
+    id := len(GlobalFeeds)+1
     feed.ID = id;
-    
+
     GlobalFeeds = append(GlobalFeeds, feed)
 
     w.Header().Set("Content-Type", "text/json; charset=utf-8")
