@@ -30,8 +30,7 @@ type Feed struct {
 var GlobalFeeds []Feed
 
 func ConnectToDB() {
-    connectionParams := "user=refeeder dbname=refeed"
-    db, err := sql.Open("postgres", connectionParams)
+    db, err := sql.Open("postgres", getDatabaseConnectionString())
     if err != nil {
         log.Fatal(err)
         return
