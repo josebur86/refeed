@@ -67,6 +67,11 @@ func main() {
     http.ListenAndServe(":8080", router)
 }
 
+// TODO(joe): For now, I'm going to assume that the db schema exists and fail or return now results
+// if the schema do not exist. I'll need to either check and create or use a front end for this.
+// STUDY(joe): Is there a rails like library for go?
+
+
 func AllFeedsHandler(w http.ResponseWriter, r *http.Request) {
     response, err := json.Marshal(GlobalFeeds)
     if err != nil {
