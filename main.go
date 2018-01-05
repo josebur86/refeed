@@ -33,14 +33,18 @@ func ConnectToDB() {
     db, err := sql.Open("postgres", getDatabaseConnectionString())
     if err != nil {
         log.Fatal(err)
-        return
     }
 
-    log.Print("Connected!")
-    _, err = db.Query("SELECT version();")
+    rows, err := db.Query("SELECT version();")
     if err != nil {
         log.Fatal(err)
-        return
+    }
+    defer rows.Close()
+
+    if rows.Next() {
+        var version string;
+        rows.Scan(&version)
+        log.Printf("Connected: %s", version)
     }
 }
 
@@ -66,8 +70,7 @@ func main() {
 func AllFeedsHandler(w http.ResponseWriter, r *http.Request) {
     response, err := json.Marshal(GlobalFeeds)
     if err != nil {
-        fmt.Println("Error marshaling feeds: ", err)
-        return
+        log.Fatal("Error marshaling feeds: ", err)
     }
 
     w.Header().Set("Content-Type", "text/json; charset=utf-8")
@@ -78,8 +81,7 @@ func SingleFeedHandler(w http.ResponseWriter, r *http.Request) {
     vars := mux.Vars(r)
     id, err := strconv.Atoi(vars["id"])
     if err != nil {
-        fmt.Println("Error parsing feed id: ", err)
-        return
+        log.Fatal("Error parsing feed id: ", err)
     }
 
     w.Header().Set("Content-Type", "text/json; charset=utf-8")
@@ -102,8 +104,7 @@ func AddFeedHandler(w http.ResponseWriter, r *http.Request) {
     var feed Feed
     err := json.NewDecoder(r.Body).Decode(&feed)
     if err != nil {
-        fmt.Println("Error parsing request body: ", err)
-        return
+        log.Fatal("Error parsing request body: ", err)
     }
 
     id := len(GlobalFeeds)+1
