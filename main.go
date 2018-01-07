@@ -28,8 +28,9 @@ type Feed struct {
 }
 
 var GlobalFeeds []Feed
+var GlobalDB *sql.DB
 
-func ConnectToDB() {
+func ConnectToDB() (*sql.DB) {
     db, err := sql.Open("postgres", getDatabaseConnectionString())
     if err != nil {
         log.Fatal(err)
@@ -46,10 +47,12 @@ func ConnectToDB() {
         rows.Scan(&version)
         log.Printf("Connected: %s", version)
     }
+
+    return db
 }
 
 func main() {
-    ConnectToDB()
+    GlobalDB = ConnectToDB()
 
     GlobalFeeds = append(GlobalFeeds, Feed{1, "Example", "http://www.Example.com/rss"})
     GlobalFeeds = append(GlobalFeeds, Feed{2, "WhoCares", "http://www.WhoCares.com/rss"})
@@ -73,7 +76,20 @@ func main() {
 
 
 func AllFeedsHandler(w http.ResponseWriter, r *http.Request) {
-    response, err := json.Marshal(GlobalFeeds)
+    rows, err := GlobalDB.Query("SELECT id, title, url from feeds;")
+    if err != nil {
+        log.Fatal("Error querying database: ", err)
+    }
+    defer rows.Close()
+
+    feeds := []Feed{}
+    for rows.Next() {
+        var f Feed
+        rows.Scan(&f.ID, &f.Title, &f.URL)
+        feeds = append(feeds, f)
+    }
+
+    response, err := json.Marshal(feeds)
     if err != nil {
         log.Fatal("Error marshaling feeds: ", err)
     }
