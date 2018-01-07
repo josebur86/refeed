@@ -36,6 +36,7 @@ func ConnectToDB() (*sql.DB) {
         log.Fatal(err)
     }
 
+    // TODO(joe): Use QueryRow here?
     rows, err := db.Query("SELECT version();")
     if err != nil {
         log.Fatal(err)
@@ -105,15 +106,20 @@ func SingleFeedHandler(w http.ResponseWriter, r *http.Request) {
         log.Fatal("Error parsing feed id: ", err)
     }
 
-    w.Header().Set("Content-Type", "text/json; charset=utf-8")
-    for _, feed := range GlobalFeeds {
-        if feed.ID == id {
-            json.NewEncoder(w).Encode(feed)
-            return
-        }
+    rows, err := GlobalDB.Query("SELECT id, title, url from feeds where id = $1;", id)
+    if err != nil {
+        log.Fatal("Error querying database: ", err)
     }
+    defer rows.Close()
 
-    fmt.Fprintf(w, "{}"); // TODO(joe): What's the more RESTy response to a request to a feed that doesn't exist.
+    w.Header().Set("Content-Type", "text/json; charset=utf-8")
+    if rows.Next() {
+        var f Feed
+        rows.Scan(&f.ID, &f.Title, &f.URL)
+        json.NewEncoder(w).Encode(f)
+    } else {
+        fmt.Fprintf(w, "{}"); // TODO(joe): What's the more RESTy response to a request to a feed that doesn't exist.
+    }
 }
 
 func AddFeedHandler(w http.ResponseWriter, r *http.Request) {
