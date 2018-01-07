@@ -27,7 +27,6 @@ type Feed struct {
     URL string `json:"url"` // TODO(joe): Use the URL type here?
 }
 
-var GlobalFeeds []Feed
 var GlobalDB *sql.DB
 
 func ConnectToDB() (*sql.DB) {
@@ -54,10 +53,6 @@ func ConnectToDB() (*sql.DB) {
 
 func main() {
     GlobalDB = ConnectToDB()
-
-    GlobalFeeds = append(GlobalFeeds, Feed{1, "Example", "http://www.Example.com/rss"})
-    GlobalFeeds = append(GlobalFeeds, Feed{2, "WhoCares", "http://www.WhoCares.com/rss"})
-    GlobalFeeds = append(GlobalFeeds, Feed{3, "Charlie.com", "http://www.Charlie.com/rss"})
 
     router := mux.NewRouter() // TODO(joe): StrictSlash(true)??
 
@@ -126,20 +121,35 @@ func AddFeedHandler(w http.ResponseWriter, r *http.Request) {
     // Here's what I think I have to do:
     //  1. Get the data if there is any
     //  2. Assume the data is json and parse it.
-    //  3. Add the feed to the GlobalFeeds list.
+    //  3. Add the feed to db.
     //  4. Return the correct response.
-    var feed Feed
-    err := json.NewDecoder(r.Body).Decode(&feed)
+    var f Feed
+    err := json.NewDecoder(r.Body).Decode(&f)
     if err != nil {
         log.Fatal("Error parsing request body: ", err)
     }
 
-    id := len(GlobalFeeds)+1
-    feed.ID = id;
+    row := GlobalDB.QueryRow("INSERT INTO feeds (title, url) VALUES ($1, $2) RETURNING id;", f.Title, f.URL)
 
-    GlobalFeeds = append(GlobalFeeds, feed)
+    var id int
+    err = row.Scan(&id)
+    if err != nil {
+        log.Fatal("Error adding feed to the db: ", err)
+    }
+
+    rows, err := GlobalDB.Query("SELECT id, title, url from feeds where id = $1;", id)
+    if err != nil {
+        log.Fatal("Error querying database: ", err)
+    }
+    defer rows.Close()
 
     w.Header().Set("Content-Type", "text/json; charset=utf-8")
-    w.WriteHeader(http.StatusCreated)
-    json.NewEncoder(w).Encode(feed)
+    if rows.Next() {
+        var f Feed
+        rows.Scan(&f.ID, &f.Title, &f.URL)
+        w.WriteHeader(http.StatusCreated)
+        json.NewEncoder(w).Encode(f)
+    } else {
+        fmt.Fprintf(w, "{}"); // TODO(joe): What's the more RESTy response to a request to a feed that doesn't exist.
+    }
 }

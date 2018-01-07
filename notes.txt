@@ -2,7 +2,7 @@
 Schema
 
 create table feeds (
-    id integer primary key not null, // TODO(joe): Auto-increment?
+    id serial primary key,
     title varchar(256) not null,
     url text not null
 );
