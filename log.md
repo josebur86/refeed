@@ -32,4 +32,17 @@ using Go's XML parsing can be kind of tricky and the easiest way to know what th
 for is to have it generate XML that is in the same structure as the XML you are trying to parse. The
 Atom standard is RFC 4287 and has a simple one entry example that I will try to output first.
 
+06 Feb 2018
+===========
+### 08:05 ###
+I remembered right. Getting the XML just right is tricky and time consuming. Here's what I'm
+outputing right now.
 
+```
+<feed xmlns="http://www.w3.org/2005/Atom">
+     <title>Example Feed</title>
+     <href xmlns="link,">http://example.org/</href>
+</feed>
+```
+
+The link is all messed up. Off to work!

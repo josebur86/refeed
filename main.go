@@ -11,10 +11,12 @@ package main
 import (
 	"database/sql"
     "encoding/json"
+    "encoding/xml"
     "fmt"
     "io/ioutil"
     "log"
     "net/http"
+    "os"
     "strconv"
 
     "github.com/gorilla/mux"
@@ -53,6 +55,9 @@ func ConnectToDB() (*sql.DB) {
 }
 
 func main() {
+
+    OutputTestXML()
+
     GlobalDB = ConnectToDB()
 
     router := mux.NewRouter() // TODO(joe): StrictSlash(true)??
@@ -202,4 +207,24 @@ func EditFeedHandler(w http.ResponseWriter, r *http.Request) {
             </form>
          </body>
      </html>`)
+}
+
+type AtomFeed struct {
+    XMLName  xml.Name `xml:"http://www.w3.org/2005/Atom feed"`
+    Title    string   `xml:"title"`
+    LinkHref string   `xml:"link, href"` // TODO(joe): Fix this
+}
+func OutputTestXML() {
+    feed := AtomFeed{}
+    feed.XMLName = xml.Name{"http://www.w3.org/2005/Atom", "feed"}
+    feed.Title = "Example Feed"
+    feed.LinkHref = "http://example.org/"
+
+    encoder := xml.NewEncoder(os.Stdout)
+    encoder.Indent("  ", "    ")
+    err := encoder.Encode(feed)
+    if err != nil {
+        log.Fatal("Unable to encode feed: ", err)
+    }
+    fmt.Printf("\n")
 }
