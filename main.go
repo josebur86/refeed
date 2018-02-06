@@ -12,6 +12,7 @@ import (
 	"database/sql"
     "encoding/json"
     "fmt"
+    "io/ioutil"
     "log"
     "net/http"
     "strconv"
@@ -110,6 +111,26 @@ func SingleFeedHandler(w http.ResponseWriter, r *http.Request) {
     }
     defer rows.Close()
 
+    if rows.Next() {
+        var f Feed
+        rows.Scan(&f.ID, &f.Title, &f.URL)
+
+        resp, err := http.Get(f.URL)
+        if err != nil {
+            log.Fatal("Error fetching feed contents: ", err)
+        }
+        defer resp.Body.Close()
+
+        contents, err := ioutil.ReadAll(resp.Body)
+        if err != nil {
+            log.Fatal("Error consuming feed contents: ", err)
+        }
+
+        w.Header().Set("Content-Type", "text/xml; charset=utf-8")
+        fmt.Fprintf(w, "%s", contents)
+    }
+
+    /*
     w.Header().Set("Content-Type", "text/json; charset=utf-8")
     if rows.Next() {
         var f Feed
@@ -118,6 +139,7 @@ func SingleFeedHandler(w http.ResponseWriter, r *http.Request) {
     } else {
         fmt.Fprintf(w, "{}"); // TODO(joe): What's the more RESTy response to a request to a feed that doesn't exist.
     }
+    */
 }
 
 func AddFeedHandler(w http.ResponseWriter, r *http.Request) {

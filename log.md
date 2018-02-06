@@ -18,3 +18,14 @@ PUT /feeds - Add a feed
 ```
 OK I think the next thing that I want to do is make simple edit page that you get when the user goes
 to /feeds/edit. It will have the fields needed for adding a new feed.
+
+### 21:39 ###
+OK now I want to parse and display the article titles.
+
+### 21:54 ###
+Well that was simplier than I thought it would be. I have the server returning the feed XML when the
+URL is a valid one and exiting when the URL is not valid. Firefox does something cool and displays
+the feed contents in a pretty way.
+
+Polygon uses an Atom feed format so I'll work on parsing that format first.
+
