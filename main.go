@@ -58,10 +58,13 @@ func main() {
 
     // GET
     router.HandleFunc("/feeds", AllFeedsHandler).Methods("GET");
+    router.HandleFunc("/feeds/edit", EditFeedHandler).Methods("GET");
     router.HandleFunc("/feeds/{id}", SingleFeedHandler).Methods("GET");
 
     // PUT
     router.HandleFunc("/feeds", AddFeedHandler).Methods("PUT");
+    router.HandleFunc("/feeds", AddFeedFromFormHandler).Methods("POST");
+
 
     http.ListenAndServe(":8080", router)
 }
@@ -118,21 +121,32 @@ func SingleFeedHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func AddFeedHandler(w http.ResponseWriter, r *http.Request) {
-    // Here's what I think I have to do:
-    //  1. Get the data if there is any
-    //  2. Assume the data is json and parse it.
-    //  3. Add the feed to db.
-    //  4. Return the correct response.
     var f Feed
     err := json.NewDecoder(r.Body).Decode(&f)
     if err != nil {
         log.Fatal("Error parsing request body: ", err)
     }
 
+    AddFeedToDatabase(f, w)
+}
+
+func AddFeedFromFormHandler(w http.ResponseWriter, r *http.Request) {
+    r.ParseForm()
+
+    var f Feed
+    f.Title = r.PostForm.Get("title")
+    f.URL = r.PostForm.Get("url")
+
+    log.Print(f)
+    AddFeedToDatabase(f, w)
+}
+
+func AddFeedToDatabase(f Feed, w http.ResponseWriter) {
+    log.Print(f)
     row := GlobalDB.QueryRow("INSERT INTO feeds (title, url) VALUES ($1, $2) RETURNING id;", f.Title, f.URL)
 
     var id int
-    err = row.Scan(&id)
+    err := row.Scan(&id)
     if err != nil {
         log.Fatal("Error adding feed to the db: ", err)
     }
@@ -152,4 +166,18 @@ func AddFeedHandler(w http.ResponseWriter, r *http.Request) {
     } else {
         fmt.Fprintf(w, "{}"); // TODO(joe): What's the more RESTy response to a request to a feed that doesn't exist.
     }
+}
+
+func EditFeedHandler(w http.ResponseWriter, r *http.Request) {
+    // TODO(joe): We should really use an html text template here.
+    fmt.Fprintf(w, "%s",
+    `<html>
+         <body>
+            <form action="/feeds" method="post">
+                Title: <input type="text" name="title"><br>
+                URL: <input type="text" name="url"><br>
+                <input type="submit" value="Add Feed">
+            </form>
+         </body>
+     </html>`)
 }
