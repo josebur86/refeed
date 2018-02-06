@@ -27,5 +27,9 @@ Well that was simplier than I thought it would be. I have the server returning t
 URL is a valid one and exiting when the URL is not valid. Firefox does something cool and displays
 the feed contents in a pretty way.
 
-Polygon uses an Atom feed format so I'll work on parsing that format first.
+Polygon uses an Atom feed format so I'll work on parsing that format first. I seem to remember that
+using Go's XML parsing can be kind of tricky and the easiest way to know what the parser was looking
+for is to have it generate XML that is in the same structure as the XML you are trying to parse. The
+Atom standard is RFC 4287 and has a simple one entry example that I will try to output first.
+
 
