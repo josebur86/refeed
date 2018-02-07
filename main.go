@@ -18,6 +18,7 @@ import (
     "net/http"
     "os"
     "strconv"
+    "time"
 
     "github.com/gorilla/mux"
 	_ "github.com/lib/pq"
@@ -210,15 +211,45 @@ func EditFeedHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 type AtomFeed struct {
-    XMLName  xml.Name `xml:"http://www.w3.org/2005/Atom feed"`
-    Title    string   `xml:"title"`
-    LinkHref string   `xml:"link, href"` // TODO(joe): Fix this
+    XMLName  xml.Name  `xml:"http://www.w3.org/2005/Atom feed"`
+    Title    string    `xml:"title"`
+    Link     Link      `xml:"link"`
+    Updated  time.Time `xml:"updated"`
+    Author   Author    `xml:"author"`
+    ID       string    `xml:"id"`
+    Entries  []Entry   `xml:"entry"`
+}
+type Entry struct {
+    Title   string    `xml:"title"`
+    Link    Link      `xml:"link"`
+    ID      string    `xml:"id"`
+    Updated time.Time `xml:"updated"`
+    Summary string    `xml:"summary"`
+}
+type Link struct {
+    Href string `xml:"href,attr"`
+}
+type Author struct {
+    Name string `xml:"name"`
 }
 func OutputTestXML() {
-    feed := AtomFeed{}
-    feed.XMLName = xml.Name{"http://www.w3.org/2005/Atom", "feed"}
-    feed.Title = "Example Feed"
-    feed.LinkHref = "http://example.org/"
+    feed := AtomFeed{
+        XMLName: xml.Name{"http://www.w3.org/2005/Atom", "feed"},
+        Title: "Example Feed",
+        Link: Link{ Href: "http://example.org/" },
+        Updated: ParseTime("2003-12-13T18:30:02Z"),
+        Author: Author{ Name: "John Doe" },
+        ID: "urn:uuid:60a76c80-d399-11d9-b93C-0003939e0af6",
+        Entries: []Entry {
+            {
+                Title: "Atom-Powered Robots Run Amok",
+                Link: Link { Href: "http://example.org/2003/12/13/atom03" },
+                ID: "urn:uuid:1225c695-cfb8-4ebb-aaaa-80da344efa6a",
+                Updated: ParseTime("2003-12-13T18:30:02Z"),
+                Summary: "Some Text.",
+            },
+        },
+    }
 
     encoder := xml.NewEncoder(os.Stdout)
     encoder.Indent("  ", "    ")
@@ -227,4 +258,12 @@ func OutputTestXML() {
         log.Fatal("Unable to encode feed: ", err)
     }
     fmt.Printf("\n")
+}
+func ParseTime(s string) (time.Time) {
+    time, err := time.Parse(time.RFC3339, s)
+    if err != nil {
+        log.Fatal("Unable to parse time: ", err)
+    }
+
+    return time
 }
