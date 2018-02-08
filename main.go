@@ -57,7 +57,7 @@ func ConnectToDB() (*sql.DB) {
 
 func main() {
 
-    OutputTestXML()
+    //OutputTestXML()
 
     GlobalDB = ConnectToDB()
 
@@ -132,20 +132,21 @@ func SingleFeedHandler(w http.ResponseWriter, r *http.Request) {
             log.Fatal("Error consuming feed contents: ", err)
         }
 
-        w.Header().Set("Content-Type", "text/xml; charset=utf-8")
-        fmt.Fprintf(w, "%s", contents)
-    }
+        var atomFeed AtomFeed
+        err = xml.Unmarshal(contents, &atomFeed)
+        if err != nil {
+            log.Fatal("Error parsing feed contents: ", err)
+        }
 
-    /*
-    w.Header().Set("Content-Type", "text/json; charset=utf-8")
-    if rows.Next() {
-        var f Feed
-        rows.Scan(&f.ID, &f.Title, &f.URL)
-        json.NewEncoder(w).Encode(f)
-    } else {
-        fmt.Fprintf(w, "{}"); // TODO(joe): What's the more RESTy response to a request to a feed that doesn't exist.
+        fmt.Fprintf(w, "%s\n", atomFeed.Title)
+        fmt.Fprintf(w, "%s\n", atomFeed.Author.Name)
+        fmt.Fprintf(w, "%s\n\n", atomFeed.Link.Href)
+        for _, entry := range atomFeed.Entries {
+            fmt.Fprintf(w, "  %s\n", entry.Title)
+            fmt.Fprintf(w, "  %s\n", entry.Link.Href)
+            fmt.Fprintf(w, "  %s\n\n", entry.Summary)
+        }
     }
-    */
 }
 
 func AddFeedHandler(w http.ResponseWriter, r *http.Request) {

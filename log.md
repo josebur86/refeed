@@ -47,7 +47,7 @@ outputing right now.
 
 The link is all messed up. Off to work!
 
-06 Feb 2018
+07 Feb 2018
 ===========
 ### 07:30 ###
 I need to pay more attention to spacing when working with the XML tags on struct elements.
@@ -90,3 +90,10 @@ Now I"m starting to get the hang of it. Current output is
 
 This is all of the example. Next, I want to see how this bare-bones version handles a real Atom
 feed. But first, off to work!
+
+08 Feb 2018
+===========
+### 08:08 ###
+The current AtomFeed definition works with Polygon's feed. Now the single feed handler just returns
+a bunch of text with basic feed and entry info.
+
