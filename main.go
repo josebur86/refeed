@@ -31,7 +31,7 @@ type Feed struct {
     URL string `json:"url"` // TODO(joe): Use the URL type here?
 }
 
-var GlobalDB *sql.DB
+var DB *sql.DB
 
 func ConnectToDB() (*sql.DB) {
     db, err := sql.Open("postgres", getDatabaseConnectionString())
@@ -39,18 +39,7 @@ func ConnectToDB() (*sql.DB) {
         log.Fatal(err)
     }
 
-    // TODO(joe): Use QueryRow here?
-    rows, err := db.Query("SELECT version();")
-    if err != nil {
-        log.Fatal(err)
-    }
-    defer rows.Close()
-
-    if rows.Next() {
-        var version string;
-        rows.Scan(&version)
-        log.Printf("Connected: %s", version)
-    }
+    log.Printf("Database connected!")
 
     return db
 }
@@ -59,7 +48,7 @@ func main() {
 
     //OutputTestXML()
 
-    GlobalDB = ConnectToDB()
+    DB = ConnectToDB()
 
     router := mux.NewRouter() // TODO(joe): StrictSlash(true)??
 
@@ -73,6 +62,7 @@ func main() {
     router.HandleFunc("/feeds", AddFeedFromFormHandler).Methods("POST");
 
 
+    log.Printf("Listening on port 8080")
     http.ListenAndServe(":8080", router)
 }
 
@@ -82,7 +72,7 @@ func main() {
 
 
 func AllFeedsHandler(w http.ResponseWriter, r *http.Request) {
-    rows, err := GlobalDB.Query("SELECT id, title, url from feeds;")
+    rows, err := DB.Query("SELECT id, title, url from feeds;")
     if err != nil {
         log.Fatal("Error querying database: ", err)
     }
@@ -93,6 +83,9 @@ func AllFeedsHandler(w http.ResponseWriter, r *http.Request) {
         var f Feed
         rows.Scan(&f.ID, &f.Title, &f.URL)
         feeds = append(feeds, f)
+    }
+    if err = rows.Err(); err != nil {
+        log.Printf("Error while iterating feeds: ", err)
     }
 
     response, err := json.Marshal(feeds)
@@ -111,7 +104,7 @@ func SingleFeedHandler(w http.ResponseWriter, r *http.Request) {
         log.Fatal("Error parsing feed id: ", err)
     }
 
-    rows, err := GlobalDB.Query("SELECT id, title, url from feeds where id = $1;", id)
+    rows, err := DB.Query("SELECT id, title, url from feeds where id = $1;", id)
     if err != nil {
         log.Fatal("Error querying database: ", err)
     }
@@ -147,6 +140,9 @@ func SingleFeedHandler(w http.ResponseWriter, r *http.Request) {
             fmt.Fprintf(w, "  %s\n\n", entry.Summary)
         }
     }
+    if err = rows.Err(); err != nil {
+        log.Printf("Error while iterating feed entries: ", err)
+    }
 }
 
 func AddFeedHandler(w http.ResponseWriter, r *http.Request) {
@@ -172,29 +168,21 @@ func AddFeedFromFormHandler(w http.ResponseWriter, r *http.Request) {
 
 func AddFeedToDatabase(f Feed, w http.ResponseWriter) {
     log.Print(f)
-    row := GlobalDB.QueryRow("INSERT INTO feeds (title, url) VALUES ($1, $2) RETURNING id;", f.Title, f.URL)
 
     var id int
-    err := row.Scan(&id)
+    err := DB.QueryRow("INSERT INTO feeds (title, url) VALUES ($1, $2) RETURNING id;", f.Title, f.URL).Scan(&id)
     if err != nil {
         log.Fatal("Error adding feed to the db: ", err)
     }
 
-    rows, err := GlobalDB.Query("SELECT id, title, url from feeds where id = $1;", id)
+    err = DB.QueryRow("SELECT id, title, url from feeds where id = $1 limit 1;", id).Scan(&f.ID, &f.Title, &f.URL)
     if err != nil {
         log.Fatal("Error querying database: ", err)
     }
-    defer rows.Close()
 
     w.Header().Set("Content-Type", "text/json; charset=utf-8")
-    if rows.Next() {
-        var f Feed
-        rows.Scan(&f.ID, &f.Title, &f.URL)
-        w.WriteHeader(http.StatusCreated)
-        json.NewEncoder(w).Encode(f)
-    } else {
-        fmt.Fprintf(w, "{}"); // TODO(joe): What's the more RESTy response to a request to a feed that doesn't exist.
-    }
+    w.WriteHeader(http.StatusCreated)
+    json.NewEncoder(w).Encode(f)
 }
 
 func EditFeedHandler(w http.ResponseWriter, r *http.Request) {
