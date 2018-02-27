@@ -6,3 +6,11 @@ create table feeds (
     title varchar(256) not null,
     url text not null
 );
+
+create table entries (
+    id serial primary key,
+    title varchar(256) not null,
+    url text not null,
+    feed_id integer references feeds(id),
+    unread boolean not null
+);

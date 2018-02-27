@@ -31,6 +31,14 @@ type Feed struct {
     URL string `json:"url"` // TODO(joe): Use the URL type here?
 }
 
+type FeedEntry struct {
+    ID int `json:"id"`
+    Title string `json:"title"`
+    URL string `json:"url"` // TODO(joe): Use the URL type here?
+    FeedID int `json:"feedId"`
+    Unread bool `json:"unread"`
+}
+
 var DB *sql.DB
 
 func ConnectToDB() (*sql.DB) {
@@ -63,7 +71,6 @@ func main() {
 
     // DELETE
     router.HandleFunc("/feeds/{id}", DeleteFeedHandler).Methods("DELETE");
-
 
     log.Printf("Listening on port 8080")
     http.ListenAndServe(":8080", router)
@@ -180,17 +187,6 @@ func DeleteFeedHandler(w http.ResponseWriter, r *http.Request) {
     w.WriteHeader(http.StatusNoContent)
 }
 
-func AddFeedFromFormHandler(w http.ResponseWriter, r *http.Request) {
-    r.ParseForm()
-
-    var f Feed
-    f.Title = r.PostForm.Get("title")
-    f.URL = r.PostForm.Get("url")
-
-    log.Print(f)
-    AddFeedToDatabase(f, w)
-}
-
 func AddFeedToDatabase(f Feed, w http.ResponseWriter) {
     log.Print(f)
 
@@ -210,35 +206,19 @@ func AddFeedToDatabase(f Feed, w http.ResponseWriter) {
     json.NewEncoder(w).Encode(f)
 }
 
-// TODO(joe): If I ever end up getting around to making a frontend for this thing, this type of
-// thing will need to go there.
-func EditFeedHandler(w http.ResponseWriter, r *http.Request) {
-    // TODO(joe): We should really use an html text template here.
-    fmt.Fprintf(w, "%s",
-    `<html>
-         <body>
-            <form action="/feeds" method="post">
-                Title: <input type="text" name="title"><br>
-                URL: <input type="text" name="url"><br>
-                <input type="submit" value="Add Feed">
-            </form>
-         </body>
-     </html>`)
-}
-
 // TODO(joe): This section should be moved to where feeds are parsed and their entries are added to
 // the unread list.
 
 type AtomFeed struct {
-    XMLName  xml.Name  `xml:"http://www.w3.org/2005/Atom feed"`
-    Title    string    `xml:"title"`
-    Link     Link      `xml:"link"`
-    Updated  time.Time `xml:"updated"`
-    Author   Author    `xml:"author"`
-    ID       string    `xml:"id"`
-    Entries  []Entry   `xml:"entry"`
+    XMLName  xml.Name    `xml:"http://www.w3.org/2005/Atom feed"`
+    Title    string      `xml:"title"`
+    Link     Link        `xml:"link"`
+    Updated  time.Time   `xml:"updated"`
+    Author   Author      `xml:"author"`
+    ID       string      `xml:"id"`
+    Entries  []AtomEntry `xml:"entry"`
 }
-type Entry struct {
+type AtomEntry struct {
     Title   string    `xml:"title"`
     Link    Link      `xml:"link"`
     ID      string    `xml:"id"`
@@ -252,14 +232,14 @@ type Author struct {
     Name string `xml:"name"`
 }
 func OutputTestXML() {
-    feed := AtomFeed{
+    feed := AtomFeed {
         XMLName: xml.Name{"http://www.w3.org/2005/Atom", "feed"},
         Title: "Example Feed",
         Link: Link{ Href: "http://example.org/" },
         Updated: ParseTime("2003-12-13T18:30:02Z"),
         Author: Author{ Name: "John Doe" },
         ID: "urn:uuid:60a76c80-d399-11d9-b93C-0003939e0af6",
-        Entries: []Entry {
+        Entries: []AtomEntry {
             {
                 Title: "Atom-Powered Robots Run Amok",
                 Link: Link { Href: "http://example.org/2003/12/13/atom03" },
