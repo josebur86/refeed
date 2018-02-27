@@ -61,6 +61,9 @@ func main() {
     router.HandleFunc("/feeds", AddFeedHandler).Methods("PUT");
     router.HandleFunc("/feeds", AddFeedFromFormHandler).Methods("POST");
 
+    // DELETE
+    router.HandleFunc("/feeds/{id}", DeleteFeedHandler).Methods("DELETE");
+
 
     log.Printf("Listening on port 8080")
     http.ListenAndServe(":8080", router)
@@ -97,14 +100,19 @@ func AllFeedsHandler(w http.ResponseWriter, r *http.Request) {
     fmt.Fprintf(w, "%s", response)
 }
 
-func SingleFeedHandler(w http.ResponseWriter, r *http.Request) {
+func GetFeedIDFromRequest(r *http.Request) int {
     vars := mux.Vars(r)
     id, err := strconv.Atoi(vars["id"])
     if err != nil {
         log.Fatal("Error parsing feed id: ", err)
     }
 
-    rows, err := DB.Query("SELECT id, title, url from feeds where id = $1;", id)
+    return id
+}
+
+func SingleFeedHandler(w http.ResponseWriter, r *http.Request) {
+    id := GetFeedIDFromRequest(r)
+    rows, err := DB.Query("SELECT id, title, url FROM feeds WHERE id = $1;", id)
     if err != nil {
         log.Fatal("Error querying database: ", err)
     }
@@ -155,6 +163,23 @@ func AddFeedHandler(w http.ResponseWriter, r *http.Request) {
     AddFeedToDatabase(f, w)
 }
 
+func DeleteFeedHandler(w http.ResponseWriter, r *http.Request) {
+    id := GetFeedIDFromRequest(r)
+
+    res, err := DB.Exec("DELETE FROM feeds WHERE id = $1;", id)
+    if err != nil {
+        log.Fatal(err)
+    }
+
+    rowCount, err := res.RowsAffected()
+    if err != nil {
+        log.Fatal(err)
+    }
+
+    log.Println("Deleted row count: ", rowCount)
+    w.WriteHeader(http.StatusNoContent)
+}
+
 func AddFeedFromFormHandler(w http.ResponseWriter, r *http.Request) {
     r.ParseForm()
 
@@ -185,6 +210,8 @@ func AddFeedToDatabase(f Feed, w http.ResponseWriter) {
     json.NewEncoder(w).Encode(f)
 }
 
+// TODO(joe): If I ever end up getting around to making a frontend for this thing, this type of
+// thing will need to go there.
 func EditFeedHandler(w http.ResponseWriter, r *http.Request) {
     // TODO(joe): We should really use an html text template here.
     fmt.Fprintf(w, "%s",
@@ -198,6 +225,9 @@ func EditFeedHandler(w http.ResponseWriter, r *http.Request) {
          </body>
      </html>`)
 }
+
+// TODO(joe): This section should be moved to where feeds are parsed and their entries are added to
+// the unread list.
 
 type AtomFeed struct {
     XMLName  xml.Name  `xml:"http://www.w3.org/2005/Atom feed"`
