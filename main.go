@@ -11,33 +11,15 @@ package main
 import (
 	"database/sql"
     "encoding/json"
-    "encoding/xml"
     "fmt"
     "io/ioutil"
     "log"
     "net/http"
-    "os"
     "strconv"
-    "time"
 
     "github.com/gorilla/mux"
 	_ "github.com/lib/pq"
 )
-
-
-type Feed struct {
-    ID int `json:"id"`
-    Title string `json:"title"`
-    URL string `json:"url"` // TODO(joe): Use the URL type here?
-}
-
-type FeedEntry struct {
-    ID int `json:"id"`
-    Title string `json:"title"`
-    URL string `json:"url"` // TODO(joe): Use the URL type here?
-    FeedID int `json:"feedId"`
-    Unread bool `json:"unread"`
-}
 
 var DB *sql.DB
 
@@ -53,9 +35,6 @@ func ConnectToDB() (*sql.DB) {
 }
 
 func main() {
-
-    //OutputTestXML()
-
     DB = ConnectToDB()
 
     router := mux.NewRouter() // TODO(joe): StrictSlash(true)??
@@ -119,44 +98,34 @@ func GetFeedIDFromRequest(r *http.Request) int {
 
 func SingleFeedHandler(w http.ResponseWriter, r *http.Request) {
     id := GetFeedIDFromRequest(r)
-    rows, err := DB.Query("SELECT id, title, url FROM feeds WHERE id = $1;", id)
+
+    var f Feed
+    err := DB.QueryRow("SELECT id, title, url FROM feeds WHERE id = $1;", id).Scan(&f.ID, &f.Title, &f.URL)
     if err != nil {
         log.Fatal("Error querying database: ", err)
     }
-    defer rows.Close()
 
-    if rows.Next() {
-        var f Feed
-        rows.Scan(&f.ID, &f.Title, &f.URL)
-
-        resp, err := http.Get(f.URL)
-        if err != nil {
-            log.Fatal("Error fetching feed contents: ", err)
-        }
-        defer resp.Body.Close()
-
-        contents, err := ioutil.ReadAll(resp.Body)
-        if err != nil {
-            log.Fatal("Error consuming feed contents: ", err)
-        }
-
-        var atomFeed AtomFeed
-        err = xml.Unmarshal(contents, &atomFeed)
-        if err != nil {
-            log.Fatal("Error parsing feed contents: ", err)
-        }
-
-        fmt.Fprintf(w, "%s\n", atomFeed.Title)
-        fmt.Fprintf(w, "%s\n", atomFeed.Author.Name)
-        fmt.Fprintf(w, "%s\n\n", atomFeed.Link.Href)
-        for _, entry := range atomFeed.Entries {
-            fmt.Fprintf(w, "  %s\n", entry.Title)
-            fmt.Fprintf(w, "  %s\n", entry.Link.Href)
-            fmt.Fprintf(w, "  %s\n\n", entry.Summary)
-        }
+    resp, err := http.Get(f.URL)
+    if err != nil {
+        log.Fatal("Error fetching feed contents: ", err)
     }
-    if err = rows.Err(); err != nil {
-        log.Printf("Error while iterating feed entries: ", err)
+    defer resp.Body.Close()
+
+    contents, err := ioutil.ReadAll(resp.Body)
+    if err != nil {
+        log.Fatal("Error consuming feed contents: ", err)
+    }
+
+    entries, err := f.ParseEntries(contents)
+    if err != nil {
+        log.Fatal("Error parsing feed contents: ", err)
+    }
+
+    fmt.Fprintf(w, "%s\n", f.Title)
+    fmt.Fprintf(w, "%s\n\n", f.URL)
+    for _, entry := range entries {
+        fmt.Fprintf(w, "  %s\n", entry.Title)
+        fmt.Fprintf(w, "  %s\n", entry.URL)
     }
 }
 
@@ -206,63 +175,3 @@ func AddFeedToDatabase(f Feed, w http.ResponseWriter) {
     json.NewEncoder(w).Encode(f)
 }
 
-// TODO(joe): This section should be moved to where feeds are parsed and their entries are added to
-// the unread list.
-
-type AtomFeed struct {
-    XMLName  xml.Name    `xml:"http://www.w3.org/2005/Atom feed"`
-    Title    string      `xml:"title"`
-    Link     Link        `xml:"link"`
-    Updated  time.Time   `xml:"updated"`
-    Author   Author      `xml:"author"`
-    ID       string      `xml:"id"`
-    Entries  []AtomEntry `xml:"entry"`
-}
-type AtomEntry struct {
-    Title   string    `xml:"title"`
-    Link    Link      `xml:"link"`
-    ID      string    `xml:"id"`
-    Updated time.Time `xml:"updated"`
-    Summary string    `xml:"summary"`
-}
-type Link struct {
-    Href string `xml:"href,attr"`
-}
-type Author struct {
-    Name string `xml:"name"`
-}
-func OutputTestXML() {
-    feed := AtomFeed {
-        XMLName: xml.Name{"http://www.w3.org/2005/Atom", "feed"},
-        Title: "Example Feed",
-        Link: Link{ Href: "http://example.org/" },
-        Updated: ParseTime("2003-12-13T18:30:02Z"),
-        Author: Author{ Name: "John Doe" },
-        ID: "urn:uuid:60a76c80-d399-11d9-b93C-0003939e0af6",
-        Entries: []AtomEntry {
-            {
-                Title: "Atom-Powered Robots Run Amok",
-                Link: Link { Href: "http://example.org/2003/12/13/atom03" },
-                ID: "urn:uuid:1225c695-cfb8-4ebb-aaaa-80da344efa6a",
-                Updated: ParseTime("2003-12-13T18:30:02Z"),
-                Summary: "Some Text.",
-            },
-        },
-    }
-
-    encoder := xml.NewEncoder(os.Stdout)
-    encoder.Indent("  ", "    ")
-    err := encoder.Encode(feed)
-    if err != nil {
-        log.Fatal("Unable to encode feed: ", err)
-    }
-    fmt.Printf("\n")
-}
-func ParseTime(s string) (time.Time) {
-    time, err := time.Parse(time.RFC3339, s)
-    if err != nil {
-        log.Fatal("Unable to parse time: ", err)
-    }
-
-    return time
-}
