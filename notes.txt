@@ -14,3 +14,9 @@ create table entries (
     feed_id integer references feeds(id),
     unread boolean not null
 );
+
+create table feed_status (
+    id serial primary key,
+    feed_id integer references feeds(id),
+    last_updated timestamp not null
+);
