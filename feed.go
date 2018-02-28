@@ -2,6 +2,7 @@ package main
 
 import (
     "time"
+    "database/sql"
     "encoding/xml"
 )
 
@@ -9,14 +10,6 @@ type Feed struct {
     ID int        `json:"id"`
     Title string  `json:"title"`
     URL string    `json:"url"` // TODO(joe): Use the URL type here?
-}
-
-type FeedEntry struct {
-    ID int        `json:"id"`
-    Title string  `json:"title"`
-    URL string    `json:"url"` // TODO(joe): Use the URL type here?
-    FeedID int    `json:"feedId"`
-    Unread bool   `json:"unread"`
 }
 
 func (f *Feed) ParseEntries(contents []byte) ([]FeedEntry, error) {
@@ -39,6 +32,28 @@ func (f *Feed) ParseEntries(contents []byte) ([]FeedEntry, error) {
     }
 
     return entries, nil
+}
+
+type FeedEntry struct {
+    ID int        `json:"id"`
+    Title string  `json:"title"`
+    URL string    `json:"url"` // TODO(joe): Use the URL type here?
+    FeedID int    `json:"feedId"`
+    Unread bool   `json:"unread"`
+}
+
+func (e *FeedEntry) Save(db *sql.DB) error {
+    var id int
+    err := db.QueryRow("INSERT INTO entries (title, url, feed_id, unread) VALUES ($1, $2, $3, $4) RETURNING id;",
+        e.Title, e.URL, e.FeedID, e.Unread).Scan(&id)
+    if err != nil {
+        // TODO(joe): Wrap in my own error?
+        return err
+    }
+
+    e.ID = id
+
+    return nil
 }
 
 type AtomFeed struct {

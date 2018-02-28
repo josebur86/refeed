@@ -10,7 +10,7 @@ import (
 
 // TODO(joe): If I ever end up getting around to making a frontend for this thing, this type of
 // thing will need to go there.
-func EditFeedHandler(w http.ResponseWriter, r *http.Request) {
+func editFeedHandler(w http.ResponseWriter, r *http.Request) {
     // TODO(joe): We should really use an html text template here.
     fmt.Fprintf(w, "%s",
     `<html>
@@ -24,7 +24,7 @@ func EditFeedHandler(w http.ResponseWriter, r *http.Request) {
      </html>`)
 }
 
-func GetAddFeedFromFormHandler(db *sql.DB) http.Handler {
+func getAddFeedFromFormHandler(db *sql.DB) http.Handler {
     return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
         r.ParseForm()
 
@@ -35,7 +35,7 @@ func GetAddFeedFromFormHandler(db *sql.DB) http.Handler {
         log.Print(f)
         // FIXME(joe): Instead of directly calling the database, this should send a request through the
         // REST API.
-        AddFeedToDatabase(f, db)
+        addFeedToDatabase(f, db)
 
         w.Header().Set("Content-Type", "text/json; charset=utf-8")
         w.WriteHeader(http.StatusCreated)

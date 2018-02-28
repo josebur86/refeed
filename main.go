@@ -38,16 +38,16 @@ func main() {
     router := mux.NewRouter() // TODO(joe): StrictSlash(true)??
 
     // GET
-    router.Handle("/feeds", GetAllFeedsHandler(db)).Methods("GET");
-    router.HandleFunc("/feeds/edit", EditFeedHandler).Methods("GET");
-    router.Handle("/feeds/{id}", GetSingleFeedHandler(db)).Methods("GET");
+    router.Handle("/feeds", getAllFeedsHandler(db)).Methods("GET");
+    router.HandleFunc("/feeds/edit", editFeedHandler).Methods("GET");
+    router.Handle("/feeds/{id}", getSingleFeedHandler(db)).Methods("GET");
 
     // PUT
-    router.Handle("/feeds", GetAddFeedHandler(db)).Methods("PUT");
-    router.Handle("/feeds", GetAddFeedFromFormHandler(db)).Methods("POST");
+    router.Handle("/feeds", getAddFeedHandler(db)).Methods("PUT");
+    router.Handle("/feeds", getAddFeedFromFormHandler(db)).Methods("POST");
 
     // DELETE
-    router.Handle("/feeds/{id}", GetDeleteFeedHandler(db)).Methods("DELETE");
+    router.Handle("/feeds/{id}", getDeleteFeedHandler(db)).Methods("DELETE");
 
     log.Printf("Listening on port 8080")
     http.ListenAndServe(":8080", router)
@@ -58,7 +58,7 @@ func main() {
 // STUDY(joe): Is there a rails like library for go?
 
 
-func GetAllFeedsHandler(db *sql.DB) http.Handler {
+func getAllFeedsHandler(db *sql.DB) http.Handler {
     return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
         rows, err := db.Query("SELECT id, title, url from feeds;")
         if err != nil {
@@ -86,9 +86,9 @@ func GetAllFeedsHandler(db *sql.DB) http.Handler {
     })
 }
 
-func GetSingleFeedHandler(db *sql.DB) http.Handler {
+func getSingleFeedHandler(db *sql.DB) http.Handler {
     return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-        id := GetFeedIDFromRequest(r)
+        id := getFeedIDFromRequest(r)
 
         var f Feed
         err := db.QueryRow("SELECT id, title, url FROM feeds WHERE id = $1;", id).Scan(&f.ID, &f.Title, &f.URL)
@@ -117,11 +117,13 @@ func GetSingleFeedHandler(db *sql.DB) http.Handler {
         for _, entry := range entries {
             fmt.Fprintf(w, "  %s\n", entry.Title)
             fmt.Fprintf(w, "  %s\n", entry.URL)
+
+            entry.Save(db)
         }
     })
 }
 
-func GetAddFeedHandler(db *sql.DB) http.Handler {
+func getAddFeedHandler(db *sql.DB) http.Handler {
     return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
         var f Feed
         err := json.NewDecoder(r.Body).Decode(&f)
@@ -129,7 +131,7 @@ func GetAddFeedHandler(db *sql.DB) http.Handler {
             log.Fatal("Error parsing request body: ", err)
         }
 
-        AddFeedToDatabase(f, db)
+        addFeedToDatabase(f, db)
 
         w.Header().Set("Content-Type", "text/json; charset=utf-8")
         w.WriteHeader(http.StatusCreated)
@@ -137,9 +139,9 @@ func GetAddFeedHandler(db *sql.DB) http.Handler {
     })
 }
 
-func GetDeleteFeedHandler(db *sql.DB) http.Handler {
+func getDeleteFeedHandler(db *sql.DB) http.Handler {
     return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-        id := GetFeedIDFromRequest(r)
+        id := getFeedIDFromRequest(r)
 
         res, err := db.Exec("DELETE FROM feeds WHERE id = $1;", id)
         if err != nil {
@@ -156,7 +158,7 @@ func GetDeleteFeedHandler(db *sql.DB) http.Handler {
     })
 }
 
-func GetFeedIDFromRequest(r *http.Request) int {
+func getFeedIDFromRequest(r *http.Request) int {
     vars := mux.Vars(r)
     id, err := strconv.Atoi(vars["id"])
     if err != nil {
@@ -166,7 +168,7 @@ func GetFeedIDFromRequest(r *http.Request) int {
     return id
 }
 
-func AddFeedToDatabase(f Feed, db *sql.DB) {
+func addFeedToDatabase(f Feed, db *sql.DB) {
     var id int
     err := db.QueryRow("INSERT INTO feeds (title, url) VALUES ($1, $2) RETURNING id;", f.Title, f.URL).Scan(&id)
     if err != nil {
