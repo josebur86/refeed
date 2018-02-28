@@ -1,6 +1,8 @@
 package main
 
 import (
+    "database/sql"
+    "encoding/json"
     "fmt"
     "log"
     "net/http"
@@ -22,15 +24,21 @@ func EditFeedHandler(w http.ResponseWriter, r *http.Request) {
      </html>`)
 }
 
-func AddFeedFromFormHandler(w http.ResponseWriter, r *http.Request) {
-    r.ParseForm()
+func GetAddFeedFromFormHandler(db *sql.DB) http.Handler {
+    return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+        r.ParseForm()
 
-    var f Feed
-    f.Title = r.PostForm.Get("title")
-    f.URL = r.PostForm.Get("url")
+        var f Feed
+        f.Title = r.PostForm.Get("title")
+        f.URL = r.PostForm.Get("url")
 
-    log.Print(f)
-    // FIXME(joe): Instead of directly calling the database, this should send a request through the
-    // REST API.
-    //AddFeedToDatabase(f, w)
+        log.Print(f)
+        // FIXME(joe): Instead of directly calling the database, this should send a request through the
+        // REST API.
+        AddFeedToDatabase(f, db)
+
+        w.Header().Set("Content-Type", "text/json; charset=utf-8")
+        w.WriteHeader(http.StatusCreated)
+        json.NewEncoder(w).Encode(f)
+    })
 }
